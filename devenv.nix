@@ -49,39 +49,35 @@ let
   r-with-packages = pkgs.rWrapper.override {
     packages = myRPackages;
   };
+  
 in
 {
-  # FIXED: Remove duplicate package inclusion
   packages = [ 
     pkgs.git
     pkgs.rstudio-server
+    pkgs.sqlite
+    pkgs.jupyter
     r-with-packages
-    # DON'T add myRPackages here - they're already in r-with-packages
   ];
   
   env = {
     GREET = "devenv";
     RSTUDIO_SESSION_TIMEOUT = "0";
-    RSTUDIO_SESSION_TIMEOUT_SUSPEND = "0";  # FIXED: typo was SESSOPM
+    RSTUDIO_SESSION_TIMEOUT_SUSPEND = "0";
   };
 
   processes = {
     rstudio-server-process = {
-      exec = ''
-        "${pkgs.rstudio-server}/bin/rserver" \
-          --server-daemonize=0 \
-          --www-port=8787 \
-          --www-address=127.0.0.1 \
-          --rsession-which-r="${r-with-packages}/bin/R" \
-          --server-data-dir=./.devenv/rstudio-server/var/lib \
-          --server-pid-file=./.devenv/rstudio-server/var/run/rserver.pid \
-          --rsession-config-file=./.devenv/rstudio-server/conf/rsession.conf \
-          --database-config-file=./.devenv/rstudio-server/conf/database.conf \
-          --auth-none=1 \
-          --auth-validate-users=0 \
-          --server-user=$USER
+        exec = ''
+        exec "${pkgs.rstudio-server}/bin/rserver" \
+          --config-file=./.devenv/rstudio-server/conf/rserver.conf
       '';
     };
+#    jupyter-process = {
+#      exec = ''
+#
+#      '';
+#    };
   };
 
   scripts.hello.exec = ''
@@ -89,38 +85,11 @@ in
   '';
 
   enterShell = ''
-    # Create RStudio Server directories
-    mkdir -p ./.devenv/rstudio-server/{conf,var/lib,var/run,var/log}
     
-    # Create a basic rserver.conf
-    cat > ./.devenv/rstudio-server/conf/rserver.conf << EOF
-# RStudio Server Configuration
-www-port=8787
-www-address=127.0.0.1
-rsession-which-r=${r-with-packages}/bin/R
-auth-none=1
-auth-validate-users=0
-server-user=$USER
-EOF
-
-    # Create database.conf to avoid SQLite issues
-    cat > ./.devenv/rstudio-server/conf/database.conf << EOF
-provider=sqlite
-directory=./.devenv/rstudio-server/var/lib
-EOF
-
     echo "RStudio Server will be available at: http://localhost:8787"
     echo "All R packages from your Nix configuration will be available"
     echo "To start manually: devenv up"
     echo "Bio-flake presto path: ${inputs.bio-flake.packages."x86_64-linux".presto}"
-
-        # Create rsession.conf
-    cat > ./.devenv/rstudio-server/conf/rsession.conf << EOF
-# RStudio Session Configuration
-r-libs-user=~/.local/lib/R/library
-session-timeout-minutes=0
-session-timeout-suspend-minutes=0
-EOF
   '';
 
   enterTest = ''
